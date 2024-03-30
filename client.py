@@ -16,7 +16,7 @@ def get_data(api):
         print(f"Error: {response.status_code}. Failed to fetch data.")
         print("Response content:", response.content)
 
-class NumpyArrayEncoder(JSONEncoder):
+class NumpyArrayEncoder(JSONEncoder): # encoder to encode numpy array to json
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
