@@ -5,8 +5,8 @@ import numpy as np
 
 # Load a MiDas model for depth estimation
 # model_type = "DPT_Large"  # MiDas v3 - Large (highest accuracy, slowest inference speed)
-model_type = "DPT_Hybrid" # MiDas v3 - Hybrid (medium accuracy, medium inference speed)
-# model_type = "MiDaS_small" # MiDas v2.1 - Smalll (lowest accuracy, highest inference speed)
+# model_type = "DPT_Hybrid" # MiDas v3 - Hybrid (medium accuracy, medium inference speed)
+model_type = "MiDaS_small" # MiDas v2.1 - Smalll (lowest accuracy, highest inference speed)
 
 midas = torch.hub.load("intel-isl/MiDas",model_type)
 
