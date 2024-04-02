@@ -7,6 +7,8 @@ from mediapipe.tasks.python import vision
 
 import torch
 
+import pickle
+
 #Adjust alpha values to suit your need
 alpha = 0.2
 previous_depth = 0.0
@@ -17,11 +19,99 @@ def apply_ema_filter(current_depth):
     previous_depth = filtered_depth  # Update the previous depth value
     return filtered_depth
 
-def computeDist(objectresutl, depth_map):
-    pass
+def computeDist(objectresult, depth_map):
 
-def dist_to_response(dist_from_object):  # this to be async function
-    pass
+    all_dists = []
+    dist_from_obj = {}
+    for detection in objectresult.detections:
+        # Draw bounding_box
+
+        bbox = detection.bounding_box
+        start_point = bbox.origin_x, bbox.origin_y
+        end_point = bbox.origin_x + bbox.width, bbox.origin_y + bbox.height
+        mid_point = bbox.origin_x + bbox.width//2, bbox.origin_y + bbox.height//2
+        category = detection.categories[0]
+        category_name = category.category_name
+        probability = round(category.score, 2)
+        
+        dist_from_obj[category_name] = {}
+        # as mid_point[1] indicate the height + x coordinate of object 
+        dist_from_obj[category_name]["dist"] = depth_map[mid_point[1]][mid_point[0]]
+        dist_from_obj[category_name]["prob"] = probability
+
+        x3 = depth_map.shape[1]
+        y3 = depth_map.shape[0]
+        x1 = x3//3
+        y1 = y3//3
+        x2 = (2*x3)//3
+        y2 = (2*x3)//3
+
+        x = mid_point[0]
+        y = mid_point[1]
+        
+        if x<=x1 and y<=y1:
+            dir = "Top Left"
+        elif x<=x1 and y>=y1 and y<=y2:
+            dir = "Left"
+        elif x<=x1 and y>=y2:
+            dir = "Bottom Left"
+        elif x>=x1 and x<=x2 and y<=y1:
+            dir = "Top"
+        elif x>=x1 and x<=x2 and y>=y1 and y<=y2:
+            dir = "Center"
+        elif x>=x1 and x<=x2 and y>=y2:
+            dir = "Bottom"
+        elif x>=x2 and y<=y1:
+            dir = "Top Right"
+        elif x>=x2 and y>=y1 and y<=y2:
+            dir = "Right"
+        else:
+            dir = "Bottom Right"
+
+        dist_from_obj[category_name]["dir"] = dir
+
+        all_dists.append(dist_from_obj)
+        dist_from_obj = {}
+
+    return all_dists;
+
+
+def dist_to_response(dist_from_object): 
+    with open("pastrec.dat","rb") as f:
+        prev = pickle.load(f)
+    # analysing a change in past environment and current environment and then reporting it to the user
+    # data = {
+    #     "obj1": {
+    #         "dist": 100,
+    #         "dir": "left"
+    #     }, 
+    #     "obj2": {
+    #         "dist": 200,
+    #         "dir": "top-left"
+    #     },
+    # }
+    data = dist_from_object
+    ## processing code Pending to process and compute the data dictionary
+
+
+    final_data = {}
+    for i in data.keys():
+        for j in prev.keys():
+            if (i==j):
+                if (data[i]["dir"]!=prev[j]["dir"]):
+                    final_data[i] = data[i]
+                elif (abs(data[i]["dist"] - prev[j]["dist"]) >= 150):
+                    final_data[i] = data[i];
+        if i not in list(prev.keys()):
+            final_data[i]=data[i]
+
+    with open("pastrec.dat","wb") as f:
+        pickle.dump(final_data,f)
+
+    res = ""
+    for i in final_data.keys():
+        res = res + f"{i} is at {final_data[i]['dir']} {final_data[i]['dist']} away "
+    return res
 
 # Get Camera Feed and pass it on to the server
 # Which will be a POST request
@@ -81,19 +171,21 @@ while cam.isOpened() :
         print("\t",depth_map[int(depth_map.shape[0]/2)][int(depth_map.shape[1]/2)],"\t")
         print(depth_map[depth_map.shape[0]-1][0],"\t",depth_map[depth_map.shape[0]-1][depth_map.shape[1]-1])
 
-        depth_map = cv2.normalize(depth_map,None,0,1,norm_type=cv2.NORM_MINMAX,dtype=cv2.CV_64F)
+        dist_from_obj = computeDist(detection_result, depth_map)
+        print(dist_from_obj)
 
+
+
+        # # Converting the distances of object to respective text--
+        # # This should be executed parallely while the next iteration can be runned
+
+        # dist_to_response(dist_from_obj)  # this should be async function
+
+        depth_map = cv2.normalize(depth_map,None,0,1,norm_type=cv2.NORM_MINMAX,dtype=cv2.CV_64F)
+ 
         depth_map = (depth_map*255).astype(np.uint8)
         depth_map = cv2.applyColorMap(depth_map, cv2.COLORMAP_MAGMA)
 
-        dist_from_obj = computeDist(detection_result, depth_map)
-
-        # Converting the distances of object to respective text--
-        # This should be executed parallely while the next iteration can be runned
-
-        dist_to_response(dist_from_obj)  # this should be async function
-
- 
         cv2.imshow('Depth Map', depth_map)
         if (cv2.waitKey(5) & 0xFF == 27):
             break;
@@ -105,4 +197,6 @@ cam.release()
 https://medium.com/artificialis/getting-started-with-depth-estimation-using-midas-and-python-d0119bfe1159
 
 https://medium.com/artificialis/swift-and-simple-calculate-object-distance-with-ease-in-just-few-lines-of-code-38889575bb12
+
+https://github.com/isl-org/MiDaS/issues/42
 '''
