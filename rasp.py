@@ -48,7 +48,7 @@ def computeDist(objectresult, depth_map):
 
         x = mid_point[0]
         y = mid_point[1]
-        
+
         if x<=x1 and y<=y1:
             dir = "Top Left"
         elif x<=x1 and y>=y1 and y<=y2:

@@ -63,7 +63,7 @@ while cap.isOpened():
         img = cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
 
         depth_map = (depth_map*255).astype(np.uint8)
-        depth_map = cv2.applyColorMap(depth_map, cv2.COLORMAP_MAGMA)
+        # depth_map = cv2.applyColorMap(depth_map, cv2.COLORMAP_MAGMA)
 
         cv2.putText(img, f'FPS: {int(fps)}', (20,70), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0), 2)
         cv2.imshow('Image', img)
@@ -73,6 +73,4 @@ while cap.isOpened():
             break;
 
 cap.release()
-
-
 
