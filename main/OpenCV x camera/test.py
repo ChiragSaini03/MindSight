@@ -3,13 +3,13 @@ from picamera import PiCamera
 import time 
 import cv2 
 
-#Instantiate and configure picamera 
+# Instantiate and configure picamera 
 camera = PiCamera()
 camera.resolution = (640, 480)
 camera.framerate = 32
 raw_capture = PiRGBArray(camera, size=(640, 480))
 
-#let camera module warm up 
+# let camera module warm up 
 time.sleep(0.1)
 
 # define an OpenCV window to display  video

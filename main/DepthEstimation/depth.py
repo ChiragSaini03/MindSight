@@ -25,6 +25,23 @@ else :
 
 cap = cv2.VideoCapture(0)
 
+def normalize_depth_map(depth_map, d1, d2):
+    dcur1 = depth_map[0][depth_map.shape[1]-1]
+    dcur2 = depth_map[depth_map.shape[0]-1][0]
+    
+
+    # y = a*x + b
+    a = (d1 - d2) / (dcur1-dcur2)
+    b = d1 - (a * dcur1)
+
+    # Normalize whole depth map
+    for i in range(0,depth_map.shape[0]):
+        for j in range(0,depth_map.shape[1]):
+            depth_map[i][j] = (a * depth_map[i][j]) + b
+
+    return depth_map
+
+
 while cap.isOpened():
     
     success, img = cap.read()
@@ -49,10 +66,22 @@ while cap.isOpened():
 
         depth_map = prediction.cpu().numpy()
 
+        d1 = 400
+        d2 = 70
+
+        print(depth_map[0][depth_map.shape[1]-1])
+        print(depth_map[depth_map.shape[0]-1][0])
+
+        depth_map = normalize_depth_map(depth_map, d1, d2)
+
+        # print(depth_map.shape)
+
+        # print(depth_map)
         print(depth_map[0][0],"\t",depth_map[0][depth_map.shape[1]-1])
         print("\t",depth_map[int(depth_map.shape[0]/2)][int(depth_map.shape[1]/2)],"\t")
         print(depth_map[depth_map.shape[0]-1][0],"\t",depth_map[depth_map.shape[0]-1][depth_map.shape[1]-1])
 
+        time.sleep(2)
         depth_map = cv2.normalize(depth_map,None,0,1,norm_type=cv2.NORM_MINMAX,dtype=cv2.CV_64F)
 
         end = time.time()
