@@ -12,6 +12,7 @@ import pickle
 #Adjust alpha values to suit your need
 alpha = 0.2
 previous_depth = 0.0
+
 #Applying exponential moving average filter
 def apply_ema_filter(current_depth):
     global previous_depth
@@ -19,10 +20,16 @@ def apply_ema_filter(current_depth):
     previous_depth = filtered_depth  # Update the previous depth value
     return filtered_depth
 
-def computeDist(objectresult, depth_map):
+def computeDist(objectresult, depth_map, d1, d2):
 
     all_dists = []
     dist_from_obj = {}
+    dcur1 = depth_map[0][depth_map.shape[1]-1]
+    dcur2 = depth_map[depth_map.shape[0]-1][0]
+    
+    # y = a*x + b
+    a = (d1 - d2) / (dcur1 - dcur2)
+    b = d1 - (a * dcur1)
     for detection in objectresult.detections:
         # Draw bounding_box
 
@@ -36,7 +43,7 @@ def computeDist(objectresult, depth_map):
         
         dist_from_obj[category_name] = {}
         # as mid_point[1] indicate the height + x coordinate of object 
-        dist_from_obj[category_name]["dist"] = depth_map[mid_point[1]][mid_point[0]]
+        dist_from_obj[category_name]["dist"] = (depth_map[mid_point[1]][mid_point[0]]*a) +b
         dist_from_obj[category_name]["prob"] = probability
 
         x3 = depth_map.shape[1]
@@ -75,7 +82,6 @@ def computeDist(objectresult, depth_map):
 
     return all_dists;
 
-
 def dist_to_response(dist_from_object): 
     with open("pastrec.dat","rb") as f:
         prev = pickle.load(f)
@@ -92,7 +98,6 @@ def dist_to_response(dist_from_object):
     # }
     data = dist_from_object
     ## processing code Pending to process and compute the data dictionary
-
 
     final_data = {}
     for i in data.keys():
@@ -112,6 +117,22 @@ def dist_to_response(dist_from_object):
     for i in final_data.keys():
         res = res + f"{i} is at {final_data[i]['dir']} {final_data[i]['dist']} away "
     return res
+
+# unused due to extreme complexity - O(480x640)
+def normalize_depth_map(depth_map, d1, d2):
+    dcur1 = depth_map[0][depth_map.shape[1]-1]
+    dcur2 = depth_map[depth_map.shape[0]-1][0]
+
+    # y = a*x + b
+    a = (d1 - d2) / (dcur1 - dcur2)
+    b = d1 - (a * dcur1)
+
+    # Normalize whole depth map
+    for i in range(0,depth_map.shape[0]):
+        for j in range(0,depth_map.shape[1]):
+            depth_map[i][j] = (a * depth_map[i][j]) + b
+
+    return depth_map
 
 # Get Camera Feed and pass it on to the server
 # Which will be a POST request
@@ -144,13 +165,13 @@ while cam.isOpened() :
 
     image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frm)
     detection_result = detector.detect(image)
-    print(detection_result)
+    # print(detection_result)
 
     input_batch = transform(frm).to(device)
 
     with torch.no_grad():
         prediction = midas(input_batch)
-        print(prediction)
+        # print(prediction)
 
         prediction = torch.nn.functional.interpolate(
             prediction.unsqueeze(1),
@@ -166,29 +187,35 @@ while cam.isOpened() :
         # previos_depth = depth_map
 
         # print(depth_map)
+
+        d1 = 400  # distance calculated from first ultrasonic sensor
+        d2 = 70   # distance calculated from second ultrasonic sensor
+
+        # currently d1 is top left and d2 is bottom right
+        # depth_map = normalize_depth_map(depth_map,d1,d2)
+
+
         print(depth_map[10][10])
         print(depth_map[0][0],"\t",depth_map[0][depth_map.shape[1]-1])
         print("\t",depth_map[int(depth_map.shape[0]/2)][int(depth_map.shape[1]/2)],"\t")
         print(depth_map[depth_map.shape[0]-1][0],"\t",depth_map[depth_map.shape[0]-1][depth_map.shape[1]-1])
 
-        dist_from_obj = computeDist(detection_result, depth_map)
+        dist_from_obj = computeDist(detection_result, depth_map, d1, d2)
         print(dist_from_obj)
-
-
 
         # # Converting the distances of object to respective text--
         # # This should be executed parallely while the next iteration can be runned
 
         # dist_to_response(dist_from_obj)  # this should be async function
 
-        depth_map = cv2.normalize(depth_map,None,0,1,norm_type=cv2.NORM_MINMAX,dtype=cv2.CV_64F)
+        # depth_map = cv2.normalize(depth_map,None,0,1,norm_type=cv2.NORM_MINMAX,dtype=cv2.CV_64F)
  
-        depth_map = (depth_map*255).astype(np.uint8)
-        depth_map = cv2.applyColorMap(depth_map, cv2.COLORMAP_MAGMA)
+        # depth_map = (depth_map*255).astype(np.uint8)
+        # depth_map = cv2.applyColorMap(depth_map, cv2.COLORMAP_MAGMA)
 
-        cv2.imshow('Depth Map', depth_map)
-        if (cv2.waitKey(5) & 0xFF == 27):
-            break;
+        # cv2.imshow('Depth Map', depth_map)
+        # if (cv2.waitKey(5) & 0xFF == 27):
+        #     break;
 
 cam.release()
 
